@@ -37,7 +37,7 @@ Instantly analyze and understand your screen content using advanced AI technolog
 
 3. Set up Ollama:
    - Install Ollama from [ollama.ai](https://ollama.ai)
-   - Pull the `minicpm-v (or model that support vission)` model:
+   - Pull the `minicpm-v (or model that support vision)` model:
      ```bash
      ollama pull minicpm-v
      ```
