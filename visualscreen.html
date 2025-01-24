@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visual AI Assistant</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+            line-height: 1.6;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        #screen-area {
+            width: 100%;
+            height: 400px;
+            border: 3px dashed #3498db;
+            position: relative;
+            background-color: #ecf0f1;
+            cursor: crosshair;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        #selection-box {
+            position: absolute;
+            border: 2px solid #2980b9;
+            background-color: rgba(41, 128, 185, 0.2);
+            display: none;
+            z-index: 10;
+        }
+        .input-section {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        #text-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+        .btn {
+            padding: 10px 15px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        #output {
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            min-height: 100px;
+        }
+        .status {
+            font-weight: bold;
+            color: #2ecc71;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Visual AI Assistant</h1>
+        
+        <div id="screen-area">
+            <div id="selection-box"></div>
+            <p>Click and drag to select screen area</p>
+        </div>
+
+        <div class="input-section">
+            <input 
+                type="text" 
+                id="text-input" 
+                placeholder="Enter your prompt or description"
+            >
+            <button id="text-submit" class="btn">Submit Text</button>
+            <button id="capture-screen" class="btn">Capture Screen</button>
+        </div>
+
+        <div id="connection-status" class="status">
+            Not Connected
+        </div>
+
+        <div id="output">
+            <h3>AI Response:</h3>
+            <p id="response-text">Waiting for input...</p>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const screenArea = document.getElementById('screen-area');
+        const selectionBox = document.getElementById('selection-box');
+        const textInput = document.getElementById('text-input');
+        const textSubmitBtn = document.getElementById('text-submit');
+        const captureScreenBtn = document.getElementById('capture-screen');
+        const connectionStatus = document.getElementById('connection-status');
+        const responseText = document.getElementById('response-text');
+
+        // State variables
+        let isSelecting = false;
+        let startX, startY;
+        let socket = null;
+
+        // WebSocket Connection
+        function connectWebSocket() {
+            socket = new WebSocket('ws://localhost:8765');
+
+            socket.onopen = () => {
+                connectionStatus.textContent = 'Connected';
+                connectionStatus.style.color = '#2ecc71';
+            };
+
+            socket.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === 'screen_description' || message.type === 'text_description') {
+                    responseText.textContent = message.description;
+                }
+            };
+
+            socket.onerror = (error) => {
+                connectionStatus.textContent = 'Connection Error';
+                connectionStatus.style.color = '#e74c3c';
+                console.error('WebSocket Error:', error);
+            };
+
+            socket.onclose = () => {
+                connectionStatus.textContent = 'Disconnected';
+                connectionStatus.style.color = '#f39c12';
+            };
+        }
+
+        // Screen Selection Handlers
+        screenArea.addEventListener('mousedown', startSelection);
+        screenArea.addEventListener('mousemove', updateSelection);
+        screenArea.addEventListener('mouseup', endSelection);
+
+        function startSelection(e) {
+            isSelecting = true;
+            startX = e.offsetX;
+            startY = e.offsetY;
+            
+            selectionBox.style.left = `${startX}px`;
+            selectionBox.style.top = `${startY}px`;
+            selectionBox.style.display = 'block';
+        }
+
+        function updateSelection(e) {
+            if (!isSelecting) return;
+
+            const currentX = e.offsetX;
+            const currentY = e.offsetY;
+
+            const width = Math.abs(currentX - startX);
+            const height = Math.abs(currentY - startY);
+            const left = Math.min(startX, currentX);
+            const top = Math.min(startY, currentY);
+
+            selectionBox.style.width = `${width}px`;
+            selectionBox.style.height = `${height}px`;
+            selectionBox.style.left = `${left}px`;
+            selectionBox.style.top = `${top}px`;
+        }
+
+        function endSelection(e) {
+            if (!isSelecting) return;
+            isSelecting = false;
+        }
+
+        // Button Event Listeners
+        textSubmitBtn.addEventListener('click', submitTextInput);
+        captureScreenBtn.addEventListener('click', captureScreen);
+
+        function submitTextInput() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                connectWebSocket();
+            }
+
+            const text = textInput.value.trim();
+            if (text) {
+                socket.send(JSON.stringify({
+                    type: 'text_input',
+                    text: text
+                }));
+            }
+        }
+
+        function captureScreen() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                connectWebSocket();
+            }
+
+            const selection = {
+                x: parseInt(selectionBox.style.left || 0),
+                y: parseInt(selectionBox.style.top || 0),
+                width: parseInt(selectionBox.style.width || window.innerWidth),
+                height: parseInt(selectionBox.style.height || window.innerHeight)
+            };
+
+            socket.send(JSON.stringify({
+                type: 'screen_selection',
+                data: selection
+            }));
+        }
+
+        // Initial connection
+        connectWebSocket();
+    </script>
+</body>
+</html>
