@@ -63,10 +63,6 @@ Instantly analyze and understand your screen content using advanced AI technolog
 
 Contributions welcome! Please check out our [Contributing Guidelines](CONTRIBUTING.md).
 
-## 📄 License
-
-[Your License Here - e.g., MIT License]
-
 ## 🌟 Star the Repo!
 
 If you find this project useful, please give it a star ⭐
